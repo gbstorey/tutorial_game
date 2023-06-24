@@ -5,6 +5,8 @@
 #include <iostream>
 
 #include "renderer.cpp"
+#include "platform_common.cpp"
+#include "game.cpp"
 
 global_variable bool running = true;
 
@@ -68,23 +70,59 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
                                CW_USEDEFAULT, CW_USEDEFAULT, 1280, 720, nullptr,
                                nullptr, hInstance, nullptr);
     HDC hdc = GetDC(window);
+
+    Input input = {};
+
+    float delta_time = 0.016666f;
+    LARGE_INTEGER frame_begin_time;
+    QueryPerformanceCounter(&frame_begin_time);
+    float performance_frequency;
+    {
+        LARGE_INTEGER perf;
+        QueryPerformanceFrequency(&perf);
+        performance_frequency = (float)perf.QuadPart;
+    }
+
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "LoopDoesntUseConditionVariableInspection"
     while (running) {
         // Input
         MSG message;
+
+        for (int i = 0; i < BUTTON_COUNT; i++) {
+            input.buttons[i].changed = false;
+        }
+
         while (PeekMessage(&message, window, 0,
                            0, PM_REMOVE)) {
-            TranslateMessage(&message);
-            DispatchMessage(&message);
+            switch(message.message) {
+                case WM_KEYUP:
+                case WM_KEYDOWN: {
+                    auto vk_code = (u32)message.wParam;
+                    bool is_down = ((message.lParam & (1 << 31)) == 0);
+#define process_button(b, vk)\
+case vk: {\
+input.buttons[b].is_down = is_down;\
+input.buttons[b].changed = true;\
+} break;
+                    switch (vk_code) {
+                        process_button(BUTTON_UP, VK_UP)
+                        process_button(BUTTON_DOWN, VK_DOWN)
+                        process_button(BUTTON_LEFT, VK_LEFT)
+                        process_button(BUTTON_RIGHT, VK_RIGHT)
+                        process_button(BUTTON_W, 0x57)
+                        process_button(BUTTON_S, 0x53)
+                        default: break;
+                    }
+                } break;
+                default: {
+                    TranslateMessage(&message);
+                    DispatchMessage(&message);
+                }
+            }
         }
         // Simulate
-        draw_rect(0, 0, 1, 1,
-                  0x00ff00);
-        draw_rect(30, 30, 5, 5,
-                  0x00ff00);
-        draw_rect(-20, 20, 8, 3,
-                  0x00ff00);
+        simulate_game(&input, delta_time);
 
         // Render
         StretchDIBits(hdc, 0, 0, render_state.width,
@@ -92,6 +130,14 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
                       render_state.height, render_state.memory, &render_state
                       .bit_map_info, DIB_RGB_COLORS,
                       SRCCOPY);
+
+        LARGE_INTEGER frame_end_time;
+        QueryPerformanceCounter(&frame_end_time);
+        delta_time = (float)
+                (frame_end_time.QuadPart - frame_begin_time.QuadPart)/
+                performance_frequency;
+        if (delta_time > 0.1) delta_time = 0.1;
+        frame_begin_time = frame_end_time;
     }
 #pragma clang diagnostic pop
     return 0;
