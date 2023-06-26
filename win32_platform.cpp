@@ -108,8 +108,6 @@ input.buttons[b].changed = true;\
                     switch (vk_code) {
                         process_button(BUTTON_UP, VK_UP)
                         process_button(BUTTON_DOWN, VK_DOWN)
-                        process_button(BUTTON_LEFT, VK_LEFT)
-                        process_button(BUTTON_RIGHT, VK_RIGHT)
                         process_button(BUTTON_W, 0x57)
                         process_button(BUTTON_S, 0x53)
                         default: break;
